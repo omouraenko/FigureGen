@@ -2703,6 +2703,10 @@
                                             Vels1(JunkI) = SQRT(U1(JunkI)*U1(JunkI)+V1(JunkI)*V1(JunkI))
 #ifdef DRYZEROVEL                                            
                                             IF(Vels1(JunkI).EQ.0D0)Vels1(JunkI)=-99999D0
+#else
+                                            IF(U1(JunkI).LE.-9999D0.AND.V1(JunkI).LE.-9999D0)THEN
+                                                Vels1(JunkI)=-99999D0
+                                            ENDIF
 #endif                                            
                                         ELSEIF(TRIM(ContourFileFormat1).EQ."NETCDF")THEN
 #ifdef NETCDF
@@ -2711,6 +2715,10 @@
                                             Vels1(I) = SQRT(U1(I)*U1(I)+V1(I)*V1(I))
 #ifdef DRYZEROVEL                                            
                                             IF(Vels1(I).EQ.0D0)Vels1(I)=-99999D0
+#else
+                                            IF(U1(I).LE.-9999D0.AND.V1(I).LE.-9999D0)THEN
+                                                Vels1(I)=-99999D0
+                                            ENDIF
 #endif                                            
 #endif
                                         ENDIF
@@ -3089,6 +3097,13 @@
                                             Vels1(JunkI) = SQRT(U1(JunkI)*U1(JunkI)+V1(JunkI)*V1(JunkI))
 #ifdef DRYZEROVEL                                            
                                             IF(Vels1(JunkI).EQ.0D0)Vels1(JunkI)=-99999D0
+#else
+                                            IF(U1(JunkI).LE.-9999D0.AND.V1(JunkI).LE.-9999D0)THEN
+                                                Vels1(JunkI)=-99999D0
+                                            ENDIF
+#else
+
+
 #endif                                            
                                         ELSEIF(TRIM(ContourFileFormat1).EQ."NETCDF")THEN
 #ifdef NETCDF
@@ -3096,7 +3111,11 @@
                                             V1(I) = V1(I) * ContourConversionFactor
                                             Vels1(I) = SQRT(U1(I)*U1(I)+V1(I)*V1(I))
 #ifdef DRYZEROVEL                                            
-                                            IF(Vels1(JunkI).EQ.0D0)Vels1(JunkI)=-99999D0
+                                            IF(Vels1(I).EQ.0D0)Vels1(I)=-99999D0
+#else
+                                            IF(U1(I).LE.-9999D0.AND.V1(I).LE.-9999D0)THEN
+                                                Vels1(I)=-99999D0
+                                            ENDIF
 #endif                                            
 #endif
                                         ENDIF
@@ -3146,6 +3165,10 @@
                                             Vels2(JunkI) = SQRT(U2(JunkI)*U2(JunkI)+V2(JunkI)*V2(JunkI))
 #ifdef DRYZEROVEL                                            
                                             IF(Vels2(JunkI).EQ.0D0)Vels2(JunkI)=-99999D0
+#else
+                                            IF(U2(JunkI).LE.-9999D0.AND.V2(JunkI).LE.-9999D0)THEN
+                                                Vels1(JunkI)=-99999D0
+                                            ENDIF
 #endif                                            
                                         ELSEIF(TRIM(ContourFileFormat2).EQ."NETCDF")THEN
 #ifdef NETCDF
@@ -3153,7 +3176,11 @@
                                             V2(I) = V2(I) * ContourConversionFactor
                                             Vels2(I) = SQRT(U2(I)*U2(I)+V2(I)*V2(I))
 #ifdef DRYZEROVEL                                            
-                                            IF(Vels2(JunkI).EQ.0D0)Vels2(JunkI)=-99999D0
+                                            IF(Vels2(I).EQ.0D0)Vels2(I)=-99999D0
+#else
+                                            IF(U2(I).LE.-9999D0.AND.V2(I).LE.-9999D0)THEN
+                                                Vels1(I)=-99999D0
+                                            ENDIF
 #endif                                            
 #endif
                                         ENDIF
@@ -8541,12 +8568,20 @@
                                         Vels1(JunkI) = ContourConversionFactor * SQRT(U1(JunkI)*U1(JunkI)+V1(JunkI)*V1(JunkI))
 #ifdef DRYZEROVEL                                            
                                         IF(Vels1(JunkI).EQ.0D0)Vels1(JunkI)=-99999D0
+#else
+                                        IF(U1(JunkI).LE.-9999D0.AND.V1(JunkI).LE.-9999D0)THEN
+                                            Vels1(JunkI)=-99999D0
+                                        ENDIF
 #endif
                                     ELSEIF(TRIM(ContourFileFormat1).EQ."NETCDF")THEN 
 #ifdef NETCDF
                                         Vels1(I) = ContourConversionFactor * SQRT(U1(I)*U1(I)+V1(I)*V1(I))
 #ifdef DRYZEROVEL                                            
                                         IF(Vels1(I).EQ.0D0)Vels1(I)=-99999D0
+#else
+                                        IF(U1(I).LE.-9999D0.AND.V1(I).LE.-9999D0)THEN
+                                            Vels1(I)=-99999D0
+                                        ENDIF
 #endif                                        
 #endif
                                     ENDIF
@@ -9172,12 +9207,20 @@
                                         Vels1(JunkI) = ContourConversionFactor * SQRT(U1(JunkI)*U1(JunkI)+V1(JunkI)*V1(JunkI))
 #ifdef DRYZEROVEL                                            
                                         IF(Vels1(JunkI).EQ.0D0)Vels1(JunkI)=-99999D0
+#else
+                                        IF(U1(JunkI).LE.-9999D0.AND.V1(JunkI).LE.-9999D0)THEN
+                                            Vels1(JunkI)=-99999D0
+                                        ENDIF
 #endif                                        
                                     ELSEIF(TRIM(ContourFileFormat1).EQ."NETCDF")THEN
 #ifdef NETCDF
                                         Vels1(I) = ContourConversionFactor * SQRT(U1(I)*U1(I)+V1(I)*V1(I))
 #ifdef DRYZEROVEL                                            
                                         IF(Vels1(I).EQ.0D0)Vels1(I)=-99999D0
+#else
+                                        IF(U1(I).LE.-9999D0.AND.V1(I).LE.-9999D0)THEN
+                                            Vels1(I)=-99999D0
+                                        ENDIF
 #endif                                        
 #endif
                                     ENDIF
@@ -9222,13 +9265,21 @@
                                         V2(JunkI) = JunkR2
                                         Vels2(JunkI) = ContourConversionFactor * SQRT(U2(JunkI)*U2(JunkI)+V2(JunkI)*V2(JunkI))
 #ifdef DRYZEROVEL                                            
-                                        IF(Vels1(JunkI).EQ.0D0)Vels1(JunkI)=-99999D0
+                                        IF(Vels2(JunkI).EQ.0D0)Vels2(JunkI)=-99999D0
+#else
+                                        IF(U2(I).LE.-9999D0.AND.V2(I).LE.-9999D0)THEN
+                                            Vels2(I)=-99999D0
+                                        ENDIF
 #endif                                        
                                     ELSEIF(TRIM(ContourFileFormat2).EQ."NETCDF")THEN 
 #ifdef NETCDF
                                         Vels2(I) = ContourConversionFactor * SQRT(U2(I)*U2(I)+V2(I)*V2(I))
 #ifdef DRYZEROVEL                                            
                                         IF(Vels2(I).EQ.0D0)Vels2(I)=-99999D0
+#else
+                                        IF(U2(I).LE.-9999D0.AND.V2(I).LE.-9999D0)THEN
+                                            Vels2(I)=-99999D0
+                                        ENDIF
 #endif                                        
 #endif
                                     ENDIF
