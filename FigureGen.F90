@@ -8745,6 +8745,7 @@
 
 
                         ELSEIF((TRIM(ContourFileType).EQ."13-MANNING").OR.           &
+                               (INDEX(ContourFileType,"13-SEA-SURFACE").GT.0).OR. &
                                (INDEX(ContourFileType,"13-WIND-REDUCTION").GT.0).OR. &
                                (TRIM(ContourFileType).EQ."13-CANOPY").OR.            &
                                (TRIM(ContourFileType).EQ."13-TAU0").OR.              &
@@ -8770,6 +8771,12 @@
                                 READ(UNIT=19,FMT='(A)') AttributeLabel
 
                                 IF((INDEX(AttributeLabel,"mannings_n").GT.0).AND.(TRIM(ContourFileType).EQ."13-MANNING"))THEN
+
+                                    READ(UNIT=19,FMT='(A)') JunkC
+                                    READ(UNIT=19,FMT='(A)') JunkC
+                                    READ(UNIT=19,FMT=*) AttributeDefault 
+
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT='(A)') JunkC
                                     READ(UNIT=19,FMT='(A)') JunkC
@@ -8839,6 +8846,17 @@
                                 READ(UNIT=19,FMT='(A)') AttributeLabel
 
                                 IF((INDEX(AttributeLabel,"mannings_n").GT.0).AND.(TRIM(ContourFileType).EQ."13-MANNING"))THEN
+
+                                    READ(UNIT=19,FMT=*) NumNonDefault
+
+                                    DO J=1,NumNonDefault
+
+                                        READ(UNIT=19,FMT=*) JunkI, JunkR
+                                        Attributes1(JunkI) = JunkR
+
+                                    ENDDO
+
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT=*) NumNonDefault
 
@@ -9351,6 +9369,7 @@
                             CLOSE(UNIT=23,STATUS="KEEP")
 
                         ELSEIF((TRIM(ContourFileType).EQ."13-MANNING").OR.           &
+                               (INDEX(ContourFileType,"13-SEA-SURFACE").GT.0).OR.    &
                                (INDEX(ContourFileType,"13-WIND-REDUCTION").GT.0).OR. &
                                (TRIM(ContourFileType).EQ."13-CANOPY").OR.            &
                                (TRIM(ContourFileType).EQ."13-TAU0").OR.              &
@@ -9385,6 +9404,13 @@
                                 READ(UNIT=19,FMT='(A)') AttributeLabel
 
                                 IF((INDEX(AttributeLabel,"mannings_n").GT.0).AND.(TRIM(ContourFileType).EQ."13-MANNING"))THEN
+
+                                    READ(UNIT=19,FMT='(A)') JunkC
+                                    READ(UNIT=19,FMT='(A)') JunkC
+                                    READ(UNIT=19,FMT=*) AttributeDefault
+
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.&
+                                       (TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT='(A)') JunkC
                                     READ(UNIT=19,FMT='(A)') JunkC
@@ -9461,6 +9487,12 @@
                                     READ(UNIT=23,FMT='(A)') JunkC
                                     READ(UNIT=23,FMT=*) AttributeDefault
 
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
+
+                                    READ(UNIT=23,FMT='(A)') JunkC
+                                    READ(UNIT=23,FMT='(A)') JunkC
+                                    READ(UNIT=23,FMT=*) AttributeDefault 
+
                                 ELSEIF((INDEX(AttributeLabel,"canopy").GT.0).AND.(TRIM(ContourFileType).EQ."13-CANOPY"))THEN
 
                                     READ(UNIT=23,FMT='(A)') JunkC
@@ -9526,6 +9558,17 @@
                                 READ(UNIT=19,FMT='(A)') AttributeLabel
 
                                 IF((INDEX(AttributeLabel,"mannings_n").GT.0).AND.(TRIM(ContourFileType).EQ."13-MANNING"))THEN
+
+                                    READ(UNIT=19,FMT=*) NumNonDefault
+
+                                    DO J=1,NumNonDefault
+
+                                        READ(UNIT=19,FMT=*) JunkI, JunkR
+                                        Attributes1(JunkI) = JunkR
+
+                                    ENDDO
+
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT=*) NumNonDefault
 
@@ -9628,6 +9671,17 @@
                                 READ(UNIT=23,FMT='(A)') AttributeLabel
 
                                 IF((INDEX(AttributeLabel,"mannings_n").GT.0).AND.(TRIM(ContourFileType).EQ."13-MANNING"))THEN
+
+                                    READ(UNIT=23,FMT=*) NumNonDefault
+
+                                    DO J=1,NumNonDefault
+
+                                        READ(UNIT=23,FMT=*) JunkI, JunkR
+                                        Attributes2(JunkI) = JunkR
+
+                                    ENDDO
+
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=23,FMT=*) NumNonDefault
 
