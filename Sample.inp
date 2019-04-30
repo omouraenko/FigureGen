@@ -17,7 +17,7 @@ PARAMETERS FOR CONTOURS:
 1                                                  ! Contour fill flag: 0 to ignore, 1 to plot filled contours, 2 to plot differences.
 0                                                  ! Contour lines flag: 0 to ignore, 1 to plot contour lines, 2 to plot differences.
 fort.63.nc                                            ! Name(s) of file(s) to use for contours.
-ADCIRC-OUTPUT                                      ! Contour file format flag: ADCIRC-OUTPUT, GRID-BATH/SIZE/DECOMP-#, 13-MANNING/CANOPY/TAU0/EVIS/WIND-REDUCTION(-#).
+ADCIRC-OUTPUT                                      ! Contour file format flag: ADCIRC-OUTPUT, GRID-BATH/SIZE/DECOMP-#, 13-MANNING/CANOPY/TAU0/EVIS/SEA-SURFACE/WIND-REDUCTION(-#).
 3.28090                                            ! Unit conversion factor for contours.
 ft                                                   ! Alphanumeric label for units after conversion.
 SMS                                                ! Color palette flag: RGB, SMS(+INTERVALS), CPT(+INTERVALS).
