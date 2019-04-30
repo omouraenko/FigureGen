@@ -3101,9 +3101,6 @@
                                             IF(U1(JunkI).LE.-9999D0.AND.V1(JunkI).LE.-9999D0)THEN
                                                 Vels1(JunkI)=-99999D0
                                             ENDIF
-#else
-
-
 #endif                                            
                                         ELSEIF(TRIM(ContourFileFormat1).EQ."NETCDF")THEN
 #ifdef NETCDF
@@ -8811,7 +8808,8 @@
                                     READ(UNIT=19,FMT='(A)') JunkC
                                     READ(UNIT=19,FMT=*) AttributeDefault 
 
-                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.&
+                                        (TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT='(A)') JunkC
                                     READ(UNIT=19,FMT='(A)') JunkC
@@ -8891,7 +8889,8 @@
 
                                     ENDDO
 
-                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.&
+                                        (TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT=*) NumNonDefault
 
@@ -9538,7 +9537,8 @@
                                     READ(UNIT=23,FMT='(A)') JunkC
                                     READ(UNIT=23,FMT=*) AttributeDefault
 
-                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.&
+                                        (TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=23,FMT='(A)') JunkC
                                     READ(UNIT=23,FMT='(A)') JunkC
@@ -9619,7 +9619,8 @@
 
                                     ENDDO
 
-                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.&
+                                        (TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=19,FMT=*) NumNonDefault
 
@@ -9732,7 +9733,8 @@
 
                                     ENDDO
 
-                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.(TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
+                                ELSEIF((INDEX(AttributeLabel,"sea_surface_height_above_geoid").GT.0).AND.&
+                                        (TRIM(ContourFileType).EQ."13-SEA-SURFACE"))THEN
 
                                     READ(UNIT=23,FMT=*) NumNonDefault
 
