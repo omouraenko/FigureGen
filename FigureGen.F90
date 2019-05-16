@@ -1407,7 +1407,7 @@
             CHARACTER(LEN=50)   :: LogoFile
             CHARACTER(LEN=50)   :: LogoLocation
             CHARACTER(LEN=50)   :: LogoWidth
-            CHARACTER(LEN=200)  :: NETCDF_TYPES(38)
+            CHARACTER(LEN=200)  :: NETCDF_TYPES(39)
             CHARACTER(LEN=50)   :: Palette
             CHARACTER(LEN=50)   :: Path
             CHARACTER(LEN=50)   :: ParticleColor
@@ -1601,6 +1601,7 @@
                 NETCDF_TYPES(36) = "swan_TM02_max"
                 NETCDF_TYPES(37) = "swan_TMM10"
                 NETCDF_TYPES(38) = "swan_TMM10_max"
+                NETCDF_TYPES(39) = "winddrag"
                 
     !....NOTE: The reason some are not implemented is because multiple variables appear in those
     !          NetCDF files and a user input option will need to be speicified before these can
