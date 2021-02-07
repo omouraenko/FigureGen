@@ -1,5 +1,5 @@
-Bootstrap: library
-From: wangyinz/default/tacc-containers:tacc-ubuntu18-mvapich2.3.1psm2
+Bootstrap: docker
+From: tacc/tacc-ubuntu18-mvapich2.3-psm2
 Stage: build
 
 %files
