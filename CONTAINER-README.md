@@ -45,6 +45,15 @@ module load tacc-singularity
 **Do not run Singularity on a TACC login node.
 Request an idev node or include in a slurm script**.
 
+To use an `idev` node on `Stampede2`, run
+
+```
+idev -A <account number> -N 1 -n <processes (at least 2)>
+```
+
+**At least two processes must be specified to run the TACC-compatible singularity container.** It *cannot*
+run serially.
+
 ------------------------
 
 ```bash
@@ -71,6 +80,9 @@ singularity exec <path to figuregen-serial.sif> figuregen -I ../Tests/BathyFille
 ```bash
 prun singularity exec <path to figuregen-tacc.sif> figuregen -I ../Tests/BathyFilledCPT.inp
 ```
+
+**Note:** The TACC container gives some harmless errors that can be safely ignored.
+
 ### Building Singularity Containers
 
 To build a Singularity container yourself, from the root `FigureGen` directory of this repository,
