@@ -47,7 +47,7 @@ command (for example):
 singularity exec <path to figuregen.sif> mpirun -np <num processes> figuregen -I ../Tests/BathyFilledCPT.inp
 ```
 
-##### Serial Exmaple
+##### Serial Example
 
 ```bash
 singularity exec <path to figuregen-serial.sif> figuregen -I ../Tests/BathyFilledCPT.inp
@@ -74,3 +74,55 @@ Replace `figuregen.def` with `figuregen-serial.def` or `figuregen-tacc.def` as a
 For use on MacOS and Windows, we also provide Docker containers. **All docker container instructions
 rely on your data files and input files being in the same directory** (e.g., the `autotest/docker-test` directory in this 
 repository).
+
+We maintain two Docker images for use on local machines (not HPC clusters. Use Singularity for HPC).
+
+```
+georgiastuart/figuregen
+georgiastuart/figuregen-serial
+```
+
+Running `FigureGen` in a Docker container requires four steps:
+1. Pull the desired Docker container (listed above)
+1. Launch the container and bind the directory with your data and input files to `/data`
+2. Execute the `figuregen` executable and set working directory to `/data`
+4. Shut the docker container down
+
+### Pull the Docker Image
+
+First, pull the Docker image with the following command: 
+
+```
+docker pull georgiastuart/figuregen
+```
+
+Similarly, `georgiastuart/figuregen-serial`.
+
+### Launch the Docker Container
+
+We need to launch the docker container while binding your desired data directory to `/data` 
+in the container. Use the following command (**assuming your current working directory is 
+where your data and input files are**):
+
+```
+docker run -d -it --name figuregen --mount type=bind,source="$(pwd)",target=/data georgiastuart/figuregen
+```
+
+Similarly for `georgiastuart/figuregen-serial`.
+
+### Run the FigureGen Program
+
+Next, we will run the `FigureGen` program and set the working directory to `/data`:
+
+```
+docker exec -it -w /data figuregen figuregen -I <input file name>
+```
+
+### Shut Down the Container
+
+Finally, after your plots are satisfactory, we shut down the Docker container. **A new container must 
+be launched each time you want to plot in a new directory**.
+
+```
+docker stop figuregen
+```
