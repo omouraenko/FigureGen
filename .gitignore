@@ -1,0 +1,5 @@
+build
+*.img
+.idea
+cmake-build-debug
+example
