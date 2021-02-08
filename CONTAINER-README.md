@@ -178,3 +178,4 @@ docker stop figuregen
 1. Tested `figuregen.sif / figuregen-serial.sif` on Ubuntu 20.10 Host Machine (7 Feb 2021)
 2. Tested `figuregen-tacc.sif` on TACC's Stampede2 on idev node (7 Feb 2021)
 3. Tested `georgiastuart/figuregen` / `georgiastuart/figuregen-serial` Docker container on MacOS 10.15.7 (7 Feb 2021)
+4. Tested `georgiastuart/figuregen` Docker container on Windows 10 (7 Feb 2021)
