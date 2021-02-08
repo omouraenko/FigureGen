@@ -1,0 +1,30 @@
+FROM ubuntu:20.04
+
+# from https://rtfm.co.ua/en/docker-configure-tzdata-and-timezone-during-build/
+ENV TZ=America/Chicago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# endfrom
+
+RUN apt-get update \
+    && apt-get install -y wget mpich ghostscript graphicsmagick gdal-bin ffmpeg cmake libxt-dev libxaw7-dev libhdf5-dev libnetcdff-dev
+
+RUN mkdir /data
+
+RUN wget ftp://ftp.soest.hawaii.edu/gmt/gmt-4.5.18-src.tar.bz2 \
+    && tar -xf gmt-4.5.18-src.tar.bz2 && cd gmt-4.5.18/ \
+    && ./configure --enable-netcdf && make && make install-gmt \
+    && make install-data && make clean \
+    && wget ftp://ftp.soest.hawaii.edu/gshhg/gshhg-gmt-2.3.7.tar.gz \
+    && tar -zxvf gshhg-gmt-2.3.7.tar.gz \
+    && cd share && mkdir coast && cd coast && mv /gmt-4.5.18/gshhg-gmt-2.3.7/* .
+
+COPY FigureGen.F90 figuregen/
+COPY cmake/FindNetCDF.cmake figuregen/cmake/
+COPY CMakeLists.txt figuregen/
+
+RUN cd figuregen && ls && mkdir build && cd build \
+    && cmake .. -DUSE_MPI=OFF -DUSE_NETCDF=ON && make
+
+RUN apt-get remove -y cmake
+
+ENV PATH="/figuregen/build:/gmt-4.5.18/bin:${PATH}"

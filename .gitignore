@@ -1,0 +1,12 @@
+build
+*.img
+*.sif
+.idea
+cmake-build-debug
+example
+*.png
+*.jpg
+
+*/Temp
+
+.gmtdefaults*

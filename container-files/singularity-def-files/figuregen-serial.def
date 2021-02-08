@@ -1,0 +1,22 @@
+Bootstrap: library
+From: ubuntu:20.04
+Stage: build
+
+%files
+    FigureGen.F90
+    CMakeLists.txt
+    cmake
+
+%post
+    apt-get update && apt-get install -y software-properties-common wget
+    add-apt-repository universe
+    apt-get update && apt-get install -y mpich ghostscript graphicsmagick gdal-bin ffmpeg cmake libxt-dev libxaw7-dev
+    apt-get install -y libhdf5-dev libnetcdff-dev
+    wget ftp://ftp.soest.hawaii.edu/gmt/gmt-4.5.18-src.tar.bz2
+    tar -xf gmt-4.5.18-src.tar.bz2 && cd gmt-4.5.18/ && ./configure --enable-netcdf && make && make install-gmt && make install-data && make clean
+    wget ftp://ftp.soest.hawaii.edu/gshhg/gshhg-gmt-2.3.7.tar.gz && tar -zxvf gshhg-gmt-2.3.7.tar.gz &&
+    cd share && mkdir coast && cd coast && mv /gmt-4.5.18/gshhg-gmt-2.3.7/* . && cd ../../..
+    mkdir build && cd build && cmake .. -DUSE_MPI=OFF -DUSE_NETCDF=ON && make && ls
+    apt-get remove -y software-properties-common cmake
+    echo 'export PATH="/build:$PATH"' >> $SINGULARITY_ENVIRONMENT
+    echo 'export PATH="/gmt-4.5.18/bin:$PATH"' >> $SINGULARITY_ENVIRONMENT
