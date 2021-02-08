@@ -109,7 +109,7 @@ georgiastuart/figuregen-serial
 
 ### Install Docker
 
-Mac instructions: https://docs.docker.com/docker-for-mac/install/
+Mac instructions: https://docs.docker.com/docker-for-mac/install/  
 Windows instructions: https://docs.docker.com/docker-for-windows/install/
 
 ### Run FigureGen Containers
