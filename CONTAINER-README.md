@@ -78,7 +78,7 @@ singularity exec <path to figuregen-serial.sif> figuregen -I ../Tests/BathyFille
 ##### TACC/HPC Example (e.g. on Stampede2. DO NOT RUN ON LOGIN NODE.)
 
 ```bash
-prun singularity exec <path to figuregen-tacc.sif> figuregen -I ../Tests/BathyFilledCPT.inp
+ibrun singularity exec <path to figuregen-tacc.sif> figuregen -I ../Tests/BathyFilledCPT.inp
 ```
 
 **Note:** The TACC container gives some harmless errors that can be safely ignored.
