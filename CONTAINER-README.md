@@ -136,8 +136,22 @@ We need to launch the docker container while binding your desired data directory
 in the container. Use the following command (**assuming your current working directory is 
 where your data and input files are**):
 
+##### Mac/Linux
+
 ```
 docker run -d -it --name figuregen --mount type=bind,source="$(pwd)",target=/data georgiastuart/figuregen
+```
+
+##### Windows (Command Prompt)
+
+```
+docker run -d -it --name figuregen --mount type=bind,source="%cd%",target=/data georgiastuart/figuregen
+```
+
+##### Windows (Power Shell)
+
+```
+docker run -d -it --name figuregen --mount type=bind,source="${PWD}",target=/data georgiastuart/figuregen
 ```
 
 Similarly for `georgiastuart/figuregen-serial`.
