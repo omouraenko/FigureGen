@@ -1,12 +1,12 @@
 FOR BEST RESULTS, PLEASE KEEP COMMENTS OUT OF THE FIRST 50 CHARACTERS ON EACH LINE.
 12345678901234567890123456789012345678901234567890
 4                                                  ! Level of screen output.
-/pscratch/zcobell/post_proc/GMT/GMT4.5.6/bin/      ! Path where GMT executables are located.
-/usr/bin/                                          ! Path where GhostScript executable is located.
+gmt                                                ! Path to GMT executable.
+gs                                                 ! Path to GhostScript executable.
 Temp/                                              ! Path where temporary files will be created.
-01_Katrina_DateTest_                                       ! Alphanumeric label for these plots.
-1,Hurricane Katrina (Time in CDT)                    ! Plot label flag and plot label.
-2,2005,8,6,19,0,0                                   ! Time bar flag: 0 to ignore, 1 to plot time bar.
+01_Katrina_DateTest_                               ! Alphanumeric label for these plots.
+1,Hurricane Katrina (Time in CDT)                  ! Plot label flag and plot label.
+2,2005,8,6,19,0,0                                  ! Time bar flag: 0 to ignore, 1 to plot time bar.
 -90.131                                            ! Lat/lon box.
 -89.647                                            !
 30.067                                             !
@@ -19,7 +19,7 @@ PARAMETERS FOR CONTOURS:
 fort.63.nc                                            ! Name(s) of file(s) to use for contours.
 ADCIRC-OUTPUT                                      ! Contour file format flag: ADCIRC-OUTPUT, GRID-BATH/SIZE/DECOMP-#, 13-MANNING/CANOPY/TAU0/EVIS/SEA-SURFACE/WIND-REDUCTION(-#).
 3.28090                                            ! Unit conversion factor for contours.
-ft                                                   ! Alphanumeric label for units after conversion.
+ft                                                 ! Alphanumeric label for units after conversion.
 SMS                                                ! Color palette flag: RGB, SMS(+INTERVALS), CPT(+INTERVALS).
 Default2.pal                                       ! Name of SMS color palette.
 DEFAULT                                            ! Color lines flag: DEFAULT, CONTOUR-LINES, GRID-BATH/SIZE/DECOMP-#.  Requires GMT4.3.0.
@@ -43,7 +43,7 @@ ADCIRC-OUTPUT                                      ! Vector file format flag: AD
 3.28000                                            ! Unit conversion factor for vectors.
 ft/s                                               ! Alphanumeric label for units after conversion.
 20.0                                               ! Magnitude of vector corresponding to one inch on the page.
-0.5,k                                                ! Spacing between vectors in degrees.
+0.5,k                                              ! Spacing between vectors in degrees.
 0.06,0.04,0.01                                     ! Vector head length, head width, tail width.
 8.0                                                ! Magnitude of vector to show in the vector scale (or FIND to determine from file).
 PARAMETERS FOR OVERALL PLOT(S):
