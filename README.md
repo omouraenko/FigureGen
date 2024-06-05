@@ -92,6 +92,8 @@ cmake -B build \
 cmake --build build
 ```
 
+The parallel version executable name is `pfiguregen`. The serial version executable name is `figuregen`. The executables are created under `build` folder.
+
 ## Input file
 
 Note, that in the input file, names of `gmt` and `gs` executables or full paths to executables (if they are not in the PATH) need to be specified:
@@ -106,4 +108,34 @@ Or
 ```text
 /usr/bin/gmt                                       ! Path to GMT executable.
 /usr/bin/gs                                        ! Path to GhostScript executable.
+```
+
+## Example script
+
+Below is an example script to run parallel version of FigureGen:
+
+```bash
+#!/bin/bash
+
+# select executable
+exe=pfiguregen
+
+# input file name
+inpFile=new.inp
+
+# set environment (load mpi, netcdf, and set path to binaries)
+module load mpi
+module load netcdf
+module load figuregen
+
+# configure gmt.conf, check defaults with 'gmt defaults' command
+# '-D' option for FORMAT_GEO_* not working, use '"-D"' instead of -D
+gmt set FORMAT_GEO_MAP D
+gmt set FORMAT_GEO_OUT D
+gmt set FORMAT_FLOAT_OUT %lg
+gmt set MAP_FRAME_TYPE fancy
+gmt set GMT_HISTORY FALSE
+gmt set PS_MEDIA letter
+
+mpirun -n 2 $exe -I $inpFile > ${exe}.log
 ```
