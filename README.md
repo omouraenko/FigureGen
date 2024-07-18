@@ -136,6 +136,7 @@ gmt set FORMAT_FLOAT_OUT %lg
 gmt set MAP_FRAME_TYPE fancy
 gmt set GMT_HISTORY FALSE
 gmt set PS_MEDIA letter
+gmt set FONT_TITLE 18p
 
 mpirun -n 2 $exe -I $inpFile > ${exe}.log
 ```

@@ -32,7 +32,6 @@
 #endif    
 !----------------------------------------------------------------------!
 
-
 !----------------------------------------------------------------------!
 !    KDTREE2 is (c) Matthew Kennel, Institute for Nonlinear Science (2004)
 !    Licensed under the Academic Free License version 1.1
@@ -1437,6 +1436,7 @@
             CHARACTER(LEN=40)   :: VectorUnits
             CHARACTER(LEN=50)   :: VectorUFile
             CHARACTER(LEN=50)   :: VectorVFile
+            CHARACTER(LEN=100)  :: LogFile
 
             INTEGER             :: C_Node
             INTEGER             :: ContourFileNumCols
@@ -1502,6 +1502,7 @@
             INTEGER             :: Verbose
             INTEGER             :: VersionNumber
             INTEGER,ALLOCATABLE :: XYZNodes(:)
+            INTEGER             :: CmdID
 
             LOGICAL             :: NeedTranslationTable
             LOGICAL             :: OutputFileList
@@ -1553,6 +1554,74 @@
             LOGICAL             :: FileExists
 
             CONTAINS
+
+            SUBROUTINE SYSTEM_LOG(command)
+                IMPLICIT NONE
+#ifdef CMPI
+                INCLUDE 'mpif.h'
+#endif
+                CHARACTER*(*) :: command
+                CHARACTER(LEN=20) :: filename
+                INTEGER :: ios
+                INTEGER :: estat, cstat
+                CHARACTER(LEN=255) :: cmsg
+
+                ! Increment ID 
+                CmdID = CmdID+1
+
+                ! Generate error log filename
+                WRITE(filename, "(A,I4.4,A,I5.5,A)") "error-",MyRank,"-",CmdID,".log"
+        
+                ! Execute the command using the SYSTEM command
+                CALL EXECUTE_COMMAND_LINE(command//" 2>"//TRIM(TempPath)//TRIM(filename), &
+                    EXITSTAT=estat, CMDSTAT=cstat, CMDMSG=cmsg)
+                IF (estat.NE.0)THEN
+                    WRITE(*,'(A)') "ERROR: Following command execution failed"
+                    WRITE(*,'(A)') TRIM(command)
+                    WRITE(*,'(A)') "Error logged into "//TRIM(filename)
+                ELSE
+                    CALL EXECUTE_COMMAND_LINE("rm -f "//TRIM(TempPath)//TRIM(filename))
+                ENDIF
+
+                IF(Verbose.GE.5)THEN
+                    ! Open the log file in append mode
+                    OPEN(UNIT=10, FILE=LogFile, STATUS='OLD', POSITION='APPEND', ACTION='WRITE', IOSTAT=ios)
+                    IF (ios.NE.0) THEN
+                        ! If file does not exist, create it
+                        OPEN(UNIT=10, FILE=LogFile, STATUS='NEW', ACTION='WRITE', IOSTAT=ios)
+                        IF (ios.NE.0) THEN
+                            WRITE(*,'(A)') "ERROR: Unable to open or create log file "//TRIM(LogFile)//"."
+#ifdef CMPI
+                            CALL MPI_ABORT(MPI_COMM_WORLD,IERR,IERR)
+#endif
+                            STOP
+                        ELSE
+                            WRITE(10,'(A,/)') "#!/bin/bash"
+                        ENDIF
+                    ENDIF
+
+                    ! Write the command to the log file
+                    WRITE(10,'(/,A,I4.4,A,I5.5)') "#Core ", MyRank, " executes command ", CmdID
+                    WRITE(10,'(A)') TRIM(command)
+                    IF (estat.EQ.0)THEN
+                        WRITE(10,'(A)') "#Status: Success"
+                    ELSE
+                        WRITE(10,'(A)') "#Status: Failed"
+                        WRITE(10,'(A,I3)') "#EXITSTAT: ", estat
+                        WRITE(10,'(A,I3)') "#CMDSTAT: ", cstat
+                        WRITE(10,'(A,A)') "#CMDMGS:  ", TRIM(cmsg)
+                        WRITE(10,'(A,A)') "#Error logged into ", TRIM(filename)
+#ifdef CMPI
+                        CALL MPI_ABORT(MPI_COMM_WORLD,IERR,IERR)
+#endif
+                        STOP
+                ENDIF
+
+                    ! Close the log file
+                    CLOSE(10)
+                ENDIF
+        
+            END SUBROUTINE SYSTEM_LOG
 
 #ifdef NETCDF
 
@@ -3980,31 +4049,31 @@
         !Casey 120508: Cannot remember why we added this IF statement.
         !     IF(NumRecords.NE.1)THEN
                  Line = "zip -q "//TRIM(GoogleLabel)//".kmz "//TRIM(GoogleLabel)//".kml"
-                 CALL SYSTEM(TRIM(Line))
-                 CALL SYSTEM("rm "//TRIM(GoogleLabel)//".kml")
+                 CALL SYSTEM_LOG(TRIM(Line))
+                 CALL SYSTEM_LOG("rm "//TRIM(GoogleLabel)//".kml")
         !     ENDIF
               DO IL=1,NumLayers
                  WRITE(TempC,'(I2.2)') 2**(IL-1)
                  Line = "zip -q "//TRIM(GoogleLabel)//".kmz "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".kml"
-                 CALL SYSTEM(TRIM(Line))
+                 CALL SYSTEM_LOG(TRIM(Line))
                  Line = "zip -q "//TRIM(GoogleLabel)//".kmz "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".png"
-                 CALL SYSTEM(TRIM(Line))
-                 CALL SYSTEM("rm -r "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".kml")
-                 CALL SYSTEM("rm -r "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".png")
-                 CALL SYSTEM("rm -r "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".ps")
+                 CALL SYSTEM_LOG(TRIM(Line))
+                 CALL SYSTEM_LOG("rm -r "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".kml")
+                 CALL SYSTEM_LOG("rm -r "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".png")
+                 CALL SYSTEM_LOG("rm -r "//TRIM(GoogleLabel)//"*"//TRIM(TempC)//".ps")
               ENDDO
               IF(((IfPlotFilledContours.GE.1).OR.(TRIM(ColorLines).NE."DEFAULT")).AND. &
                  (INDEX(ContourFileType,"GRID-DECOMP").LE.0))THEN
-                 CALL SYSTEM(Path//"ps2raster Scale.ps -A -E600 -FScale.jpg"// &
+                 CALL SYSTEM_LOG(TRIM(Path)//" "//"psconvert Scale.ps -A -E600 -FScale"// &
                              " -G"//GSPath//" -P -Tg")
                  Line = "zip -q "//TRIM(GoogleLabel)//".kmz "//"Scale.png"
-                 CALL SYSTEM(TRIM(Line))
-                 CALL SYSTEM("rm Scale.ps")
-                 CALL SYSTEM("rm Scale.png")
+                 CALL SYSTEM_LOG(TRIM(Line))
+                 CALL SYSTEM_LOG("rm Scale.ps")
+                 CALL SYSTEM_LOG("rm Scale.png")
               ENDIF
               IF(IfPlotLogo.EQ.1)THEN
                  Line = "zip -q "//TRIM(GoogleLabel)//".kmz "//TRIM(LogoFile)
-                 CALL SYSTEM(TRIM(Line))
+                 CALL SYSTEM_LOG(TRIM(Line))
               ENDIF
 
               IF(Verbose.GE.3)THEN
@@ -5038,9 +5107,19 @@
                 READ(UNIT=11,FMT='(A1)')  JunkC ! FOR BEST RESULTS ...
                 READ(UNIT=11,FMT='(A1)')  JunkC ! 01234567890 ...
 
-                READ(UNIT=11,FMT=*)       Verbose 
-                READ(UNIT=11,FMT='(A50)') Path
-                Path = TRIM(Path)//" "
+                READ(UNIT=11,FMT=*)       Verbose
+                IF(MyRank.EQ.0)THEN
+                    IF(Verbose.GE.0)THEN
+                        WRITE(*,'(A,I1,A)') "WARNING: Verbose level set to ", Verbose, "."
+                    ENDIF
+                    IF(Verbose.GE.5)THEN
+                        WRITE(*,'(A)') "WARNING: Debug log file is "//TRIM(LogFile)//"."
+                    ENDIF
+                ENDIF
+                IF(Verbose.GE.5)THEN
+                    RemoveFiles = 0
+                ENDIF
+            READ(UNIT=11,FMT='(A50)') Path
                 IF(VersionNumber.LT.41)THEN
                     GSPath = " "
                 ELSE
@@ -5054,7 +5133,7 @@
                 IF(MyRank.EQ.0)THEN
                     OPEN(FILE=TRIM(TempPath)//"TESTER.txt",UNIT=99,ACTION="WRITE",IOSTAT=IOS)
                     IF(IOS.NE.0)THEN
-                        CALL SYSTEM("mkdir "//TRIM(TempPath))
+                        CALL EXECUTE_COMMAND_LINE("mkdir "//TRIM(TempPath))
                         WRITE(*,'(A)') "WARNING: Temporary folder doesn't exist.  FigureGen has created it."
                     ELSE
                         CLOSE(99,STATUS="DELETE")
@@ -6593,7 +6672,7 @@
 
                 Extension = TRIM(Ext)
 
-                CALL SYSTEM("ls -l > "//TRIM(TempPath)//"DirList.tmp")
+                CALL SYSTEM_LOG("ls -l > "//TRIM(TempPath)//"DirList.tmp")
 
                 OPEN(UNIT=38,FILE=TRIM(TempPath)//"DirList.tmp",ACTION="READ")
 
@@ -6675,7 +6754,7 @@
                 ENDDO
 
                 DO I=1,NumFiles
-                    CALL SYSTEM("rm "//TRIM(FilesList(I)))
+                    CALL SYSTEM_LOG("rm "//TRIM(FilesList(I)))
                 ENDDO
 
         END SUBROUTINE
@@ -6851,12 +6930,12 @@
                 WRITE(UNIT=29,FMT=*) LongELocal,LatNLocal
                 CLOSE(UNIT=29,STATUS="KEEP")
                 IF(IfGoogle.EQ.0)THEN        
-                    CALL SYSTEM(Path//"mapproject "//TRIM(TempMapFile1)                 &
+                    CALL SYSTEM_LOG(TRIM(Path)//" "//"mapproject "//TRIM(TempMapFile1)                 &
                                 //" -Di "//TRIM(ProjectionC)//" -R"//TRIM(ADJUSTL(XMin))//"/" &
                                 //TRIM(ADJUSTL(XMax))//"/"//TRIM(ADJUSTL(YMin))//"/"          &
                                 //TRIM(ADJUSTL(YMax))//" > "//TRIM(TempMapFile2))                        
                 ELSEIF(IfGoogle.EQ.1)THEN
-                    CALL SYSTEM(Path//"mapproject "//TRIM(TempMapFile1)               &
+                    CALL SYSTEM_LOG(TRIM(Path)//" "//"mapproject "//TRIM(TempMapFile1)               &
                                 //" -Di "//TRIM(ProjectionC)                                &
                                 //" -R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
                                 //TRIM(ADJUSTL(YMin))//"/"//TRIM(ADJUSTL(YMax))             &
@@ -7065,16 +7144,16 @@
                                               //"+"//TRIM(GeoRefOffsetXC)//"+"//TRIM(GeoRefOffsetYC)
                         Line = TRIM(Line)//" "//TRIM(BackgroundImage)
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(GeoRefFilePNG)
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         Line = ""
                         Line = TRIM(Line)//"convert"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(GeoRefFilePNG)
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(GeoRefFileEPS)
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"psimage"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"psimage"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(GeoRefFileEPS)
                         Line = TRIM(Line)//" "//"-W"//TRIM(ADJUSTL(WidthC))//"i/"//TRIM(ADJUSTL(HeightC))//"i"
                         Line = TRIM(Line)//" "//"-C0/0/BL"
@@ -7082,7 +7161,7 @@
                         Line = TRIM(Line)//" "//"-K"
                         Line = TRIM(Line)//" "//">"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
                         IfStarted = 1
 
                     ENDIF
@@ -7103,7 +7182,7 @@
                     IF(OptimizeContours.EQ.0)THEN
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"pscontour"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"pscontour"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(ContourXYZFile)
                         Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"ContourPalette.cpt"
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
@@ -7113,8 +7192,11 @@
                             WroteBorder = .TRUE.
                             Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                               "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                               "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                            IF(IfAddPlotLabel.EQ.1)THEN
+                                Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                            ENDIF
                         ENDIF
                         Line = TRIM(Line)//" "//"-I"
                         IF(TRIM(ContourFileType).EQ."OWI-PRESS".OR.TRIM(ContourFileType).EQ."OWI-WIND")THEN
@@ -7133,12 +7215,12 @@
                             Line = TRIM(Line)//" "//"-O >>"
                         ENDIF
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                     ELSEIF(OptimizeContours.EQ.1)THEN
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"triangulate"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"triangulate"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(ContourXYZFile)
                         Line = TRIM(Line)//" "//"-G"//TRIM(TempPath)//TRIM(ContourXYZFile)//".grd"
                         Line = TRIM(Line)//" "//"-I"//TRIM(MinDistC)
@@ -7146,10 +7228,10 @@
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
                                                     //TRIM(ADJUSTL(YMin))//"/"//TRIM(ADJUSTL(YMax))
                         Line = TRIM(Line)//" "//"> /dev/null"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"grdimage"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"grdimage"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(ContourXYZFile)//".grd"
                         Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"ContourPalette.cpt"
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
@@ -7157,8 +7239,11 @@
                             WroteBorder = .TRUE.
                             Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                               "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                               "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                            IF(IfAddPlotLabel.EQ.1)THEN
+                                Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                            ENDIF
                         ENDIF
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
                                                     //TRIM(ADJUSTL(YMin))//"/"//TRIM(ADJUSTL(YMax))
@@ -7172,7 +7257,7 @@
                             Line = TRIM(Line)//" "//"-O >>"
                         ENDIF
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                     ENDIF
 
@@ -7194,7 +7279,7 @@
                         WRITE(UNIT=EdgeFileName,FMT='(A,I3.3,A)') TRIM(TempPath)//TRIM(Fort14File)//".edges.",IN,".xy"
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"psxy"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                         Line = TRIM(Line)//" "//TRIM(EdgeFileName)
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7203,19 +7288,22 @@
                             WroteBorder = .TRUE.
                             Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                               "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                               "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                            IF(IfAddPlotLabel.EQ.1)THEN
+                                Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                            ENDIF
                         ENDIF
                         IF(INDEX(ColorLines,"GRID").GT.0)THEN
                             Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"ContourPalette.cpt"
                         ENDIF
                         Line = TRIM(Line)//" "//"-m"
                         IF(TRIM(ColorLines).EQ."GRID-BATH")THEN
-                            Line = TRIM(Line)//" "//"-W+"
+                            Line = TRIM(Line)//" "//"-W+c"
                         ELSEIF(INDEX(ColorLines,"GRID-DECOMP").GT.0)THEN
-                            Line = TRIM(Line)//" "//"-W+"
+                            Line = TRIM(Line)//" "//"-W+c"
                         ELSEIF(TRIM(ColorLines).EQ."GRID-SIZE")THEN
-                            Line = TRIM(Line)//" "//"-W+"
+                            Line = TRIM(Line)//" "//"-W+c"
                         ELSE
                             Line = TRIM(Line)//" "//"-W1,Black"
                         ENDIF
@@ -7231,7 +7319,7 @@
                             Line = TRIM(Line)//" "//"-O >>"
                         ENDIF
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                     ENDDO
 
@@ -7251,7 +7339,7 @@
                     IF(OptimizeContours.EQ.0)THEN
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"pscontour"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"pscontour"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(ContourXYZFile)
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7260,8 +7348,11 @@
                             WroteBorder = .TRUE.
                             Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                               "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                               "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                            IF(IfAddPlotLabel.EQ.1)THEN
+                                Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                            ENDIF
                         ENDIF
                         Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"LabelPalette.cpt"
                         IF(ContourLabelEvery.LT.0.0000001)THEN
@@ -7272,7 +7363,7 @@
                                                     "i+r"//TRIM(ADJUSTL(ContourLabelMinDistC))//"i"
                         ENDIF
                         IF(TRIM(ColorLines).EQ."CONTOUR-LINES")THEN
-                            Line = TRIM(Line)//" "//"-W+"
+                            Line = TRIM(Line)//" "//"-W+c"
                         ELSE
                             Line = TRIM(Line)//" "//"-W"
                         ENDIF
@@ -7291,12 +7382,12 @@
                             Line = TRIM(Line)//" "//"-O >>"
                         ENDIF
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                     ELSEIF(OptimizeContours.EQ.1)THEN
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"grdcontour"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"grdcontour"
                         Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(ContourXYZFile)//".grd"
                         Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"LabelPalette.cpt"
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
@@ -7311,13 +7402,16 @@
                             WroteBorder = .TRUE.
                             Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                               "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                               "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                            IF(IfAddPlotLabel.EQ.1)THEN
+                                Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                            ENDIF
                         ENDIF
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
                                                     //TRIM(ADJUSTL(YMin))//"/"//TRIM(ADJUSTL(YMax))
                         IF(TRIM(ColorLines).EQ."CONTOUR-LINES")THEN
-                            Line = TRIM(Line)//" "//"-W+"
+                            Line = TRIM(Line)//" "//"-W+c"
                         ELSE
                             Line = TRIM(Line)//" "//"-W"
                         ENDIF
@@ -7331,7 +7425,7 @@
                             Line = TRIM(Line)//" "//"-O >>"
                         ENDIF
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                     ENDIF
 
@@ -7353,17 +7447,17 @@
 
                     Line = ""
 #ifdef CBARLIMIT
-                    Line = TRIM(Line)//Path//"psscale -E"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"psscale -E"
 #else
-                    Line = TRIM(Line)//Path//"psscale"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"psscale"
 #endif
                     Line = TRIM(Line)//" "//"-Dx"//TRIM(ADJUSTL(SideBarXC))//"i/"//TRIM(ADJUSTL(ContourScaleYC))//"i/" &
                                      //TRIM(ADJUSTL(ScaleHeightC))//"i/"//TRIM(ADJUSTL(ScaleWidthC))//"i"
                     Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"ScalePalette.cpt"
                     IF(INDEX(Palette,"INTERVALS").LE.0)THEN
-                        Line = TRIM(Line)//" "//"-B"//TRIM(ADJUSTL(ScaleLabelEveryC))//"::/:"//""""//TRIM(ContourUnits)//""""//":"
+                        Line = TRIM(Line)//" "//"-Bx"//TRIM(ADJUSTL(ScaleLabelEveryC))//" -By+l"//""""//TRIM(ContourUnits)//""""
                     ELSEIF(INDEX(Palette,"INTERVALS").GT.0)THEN
-                        Line = TRIM(Line)//" "//"-B"//"::/:"//""""//TRIM(ContourUnits)//""""//":"
+                        Line = TRIM(Line)//" "//"-By+l"//""""//TRIM(ContourUnits)//""""
                         Line = TRIM(Line)//" "//"-L"
                     ENDIF
                     IF(TRIM(ContourFileType).EQ."HWM-CSV")THEN
@@ -7384,7 +7478,7 @@
                         Line = TRIM(Line)//" "//">"
                         Line = TRIM(Line)//" "//"Scale.ps"
                     ENDIF
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(Verbose.GE.3)THEN
                         IF((IfGoogle.EQ.0).OR.(IfGIS.GT.0))THEN
@@ -7400,7 +7494,7 @@
                 IF(IfPlotBoundaries.GE.1)THEN
 
                     Line = ""
-                    Line = TRIM(Line)//Path//"psxy"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                     Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(Fort14File)//".bnd.xy"
                     Line = TRIM(Line)//" "//TRIM(ProjectionC)
                     Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7409,8 +7503,11 @@
                         WroteBorder = .TRUE.
                         Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                           "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                           "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                        IF(IfAddPlotLabel.EQ.1)THEN
+                            Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                        ENDIF
                     ENDIF
                     Line = TRIM(Line)//" "//"-m"
                     Line = TRIM(Line)//" "//"-W"//TRIM(BoundariesThickness)//","//TRIM(BoundariesColor)
@@ -7424,7 +7521,7 @@
                         Line = TRIM(Line)//" "//"-O >>"
                     ENDIF
                     Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(Verbose.GE.3)THEN
                         IF((IfGoogle.EQ.0).AND.(IfGIS.EQ.0))THEN
@@ -7440,14 +7537,17 @@
                 IF(IfPlotCoastline.GT.0)THEN
 
                     Line = ""
-                    Line = TRIM(Line)//Path//"pscoast"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"pscoast"
                     Line = TRIM(Line)//" "//TRIM(ProjectionC)
                     IF(.NOT.WroteBorder.AND.(IfGoogle.EQ.0).AND.(IfGIS.EQ.0))THEN
                         WroteBorder = .TRUE.
                         Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                           "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                           "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                        IF(IfAddPlotLabel.EQ.1)THEN
+                            Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                        ENDIF
                     ENDIF
                     Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
                                                 //TRIM(ADJUSTL(YMin))//"/"//TRIM(ADJUSTL(YMax))
@@ -7464,7 +7564,7 @@
                         Line = TRIM(Line)//" "//"-O >>"
                     ENDIF
                     Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(Verbose.GE.3)THEN
                         IF((IfGoogle.EQ.0).AND.(IfGIS.EQ.0))THEN
@@ -7481,7 +7581,7 @@
 
                     WRITE(UNIT=ParticleXYZFile,FMT='(A,A,I4.4,A)') TRIM(ParticleFile),".",Record,".xy"
                     Line = ""
-                    Line = TRIM(Line)//Path//"psxy"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                     Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(ParticleXYZFile)
                     Line = TRIM(Line)//" "//TRIM(ProjectionC)
                     Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7490,8 +7590,11 @@
                         WroteBorder = .TRUE.
                         Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                           "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                           "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                        IF(IfAddPlotLabel.EQ.1)THEN
+                            Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                        ENDIF
                     ENDIF
                     IF(UseParticlePalette)THEN
                         Line = TRIM(Line)//" -C"//TRIM(ParticlePalette)
@@ -7513,15 +7616,15 @@
                         Line = TRIM(Line)//" "//"-O >>"
                     ENDIF
                     Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(UseParticlePalette)THEN
                         Line = ""
-                        Line = TRIM(Line)//Path//"psscale"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"psscale"
                         Line = TRIM(Line)//" "//"-Dx"//TRIM(ADJUSTL(SideBarXC))//"i/"//TRIM(ADJUSTL(ContourScaleYC))//"i/" &
                                          //TRIM(ADJUSTL(ScaleHeightC))//"i/"//TRIM(ADJUSTL(ScaleWidthC))//"i"
                         Line = TRIM(Line)//" "//"-C"//TRIM(ParticlePalette)
-                        Line = TRIM(Line)//" "//"-B"//TRIM(ADJUSTL(ScaleLabelEveryC))//"::/:"//""""//TRIM(ContourUnits)//""""//":"
+                        Line = TRIM(Line)//" "//"-Bx"//TRIM(ADJUSTL(ScaleLabelEveryC))//" -By+l"//""""//TRIM(ContourUnits)//""""
                         IF(KeepOpen(7).EQ.1)THEN
                             Line = TRIM(Line)//" "//"-K"
                         ENDIF
@@ -7532,7 +7635,7 @@
                             Line = TRIM(Line)//" "//"-O >>"
                         ENDIF
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                     IF(Verbose.GE.3)THEN
@@ -7549,7 +7652,7 @@
                 IF(IfPlotDotsLines.GT.0)THEN
 
                     Line = ""
-                    Line = TRIM(Line)//Path//"psxy"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                     Line = TRIM(Line)//" "//TRIM(DotsLinesFile)
                     Line = TRIM(Line)//" "//TRIM(ProjectionC)
                     Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7568,7 +7671,7 @@
                         Line = TRIM(Line)//" "//"-K"
                     ENDIF
                     Line = TRIM(Line)//" >> "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(Verbose.GE.3)THEN
                         IF((IfGoogle.EQ.0).AND.(IfGIS.EQ.0))THEN
@@ -7604,7 +7707,7 @@
                         CLOSE(UNIT=33,STATUS="KEEP")
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"psxy"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                         Line = TRIM(Line)//" "//TRIM(TempLabelsFile)
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7613,18 +7716,21 @@
                             WroteBorder = .TRUE.
                             Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                               "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                               "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                                "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                            IF(IfAddPlotLabel.EQ.1)THEN
+                                Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                            ENDIF
                         ENDIF
                         Line = TRIM(Line)//" "//"-GBlack"
                         Line = TRIM(Line)//" "//"-Sc12p"
                         Line = TRIM(Line)//" "//"-K"
                         Line = TRIM(Line)//" "//"-O >>"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"psxy"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                         Line = TRIM(Line)//" "//TRIM(TempLabelsFile)
                         Line = TRIM(Line)//" "//"-C"//TRIM(TempPath)//"ContourPalette.cpt"
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
@@ -7636,7 +7742,7 @@
                         ENDIF
                         Line = TRIM(Line)//" "//"-O >>"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         IF(RemoveFiles.EQ.1)THEN
                             OPEN(UNIT=33,FILE=TRIM(TempLabelsFile),ACTION="WRITE")
@@ -7663,7 +7769,7 @@
                     CLOSE(UNIT=33,STATUS="KEEP")
 
                     Line = ""
-                    Line = TRIM(Line)//Path//"psxy"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                     Line = TRIM(Line)//" "//TRIM(TempLabelsFile)
                     Line = TRIM(Line)//" "//TRIM(ProjectionC)
                     Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7675,7 +7781,7 @@
                     ENDIF
                     Line = TRIM(Line)//" "//"-O >>"
                     Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(RemoveFiles.EQ.1)THEN
                         OPEN(UNIT=33,FILE=TRIM(TempLabelsFile),ACTION="WRITE")
@@ -7785,7 +7891,7 @@
                             CLOSE(UNIT=33,STATUS="KEEP")
 
                             Line = ""
-                            Line = TRIM(Line)//Path//"psxy"
+                            Line = TRIM(Line)//TRIM(Path)//" "//"psxy"
                             Line = TRIM(Line)//" "//TRIM(TempLabelsFile)
                             Line = TRIM(Line)//" "//TRIM(ProjectionC)
                             Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7795,7 +7901,7 @@
                             Line = TRIM(Line)//" "//"-K"
                             Line = TRIM(Line)//" "//"-O >>"
                             Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                            CALL SYSTEM(TRIM(Line))
+                            CALL SYSTEM_LOG(TRIM(Line))
 
                         ENDIF
 
@@ -7805,7 +7911,7 @@
                         CLOSE(UNIT=33,STATUS="KEEP")
 
                         Line = ""
-                        Line = TRIM(Line)//Path//"pstext"
+                        Line = TRIM(Line)//TRIM(Path)//" "//"pstext"
                         Line = TRIM(Line)//" "//TRIM(TempLabelsFile)
                         Line = TRIM(Line)//" "//TRIM(ProjectionC)
                         Line = TRIM(Line)//" "//"-R"//TRIM(ADJUSTL(XMin))//"/"//TRIM(ADJUSTL(XMax))//"/" &
@@ -7817,7 +7923,7 @@
                         ENDIF
                         Line = TRIM(Line)//" "//"-O >>"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         IF(RemoveFiles.EQ.1)THEN
                             OPEN(UNIT=33,FILE=TRIM(TempLabelsFile),ACTION="WRITE")
@@ -7842,7 +7948,7 @@
                 IF(IfPlotVectors.EQ.1)THEN
 
                     Line = ""
-                    Line = TRIM(Line)//Path//"grdvector"
+                    Line = TRIM(Line)//TRIM(Path)//" "//"grdvector"
                     Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(VectorUFile)//".grd"
                     Line = TRIM(Line)//" "//TRIM(TempPath)//TRIM(VectorVFile)//".grd"
                     Line = TRIM(Line)//" "//TRIM(ProjectionC)
@@ -7856,8 +7962,11 @@
                         WroteBorder = .TRUE.
                         Line = TRIM(Line)//" "//"-Bp"//TRIM(ADJUSTL(BorderIncrementMajorC))// &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//        &
-                                           "/s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
+                                           "+s"//TRIM(ADJUSTL(BorderIncrementMajorC))//       &
                                            "f"//TRIM(ADJUSTL(BorderIncrementMinorC))//"WeSn"
+                        IF(IfAddPlotLabel.EQ.1)THEN
+                            Line = TRIM(Line)//" "//"-B+t"""//TRIM(PlotLabel)//""""
+                        ENDIF
                     ENDIF
                     Line = TRIM(Line)//" "//"-S"//TRIM(ADJUSTL(VectorMagC))//"i"
                     IF((IfGoogle.EQ.0).AND.(IfGIS.EQ.0))THEN
@@ -7876,7 +7985,7 @@
                         Line = TRIM(Line)//" "//"-O >>"
                     ENDIF
                     Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF((IfGoogle.EQ.0).AND.(IfGIS.EQ.0).AND.PlotVectorScale)THEN
 
@@ -7900,7 +8009,7 @@
                             WRITE(UNIT=VectorScaleYC,FMT='(F8.5)') VectorScaleY
                         ENDIF
 
-                        CALL SYSTEM(Path//"psxy "//TRIM(TempPath)//TRIM(VectorScaleFile)// &
+                        CALL SYSTEM_LOG(TRIM(Path)//" "//"psxy "//TRIM(TempPath)//TRIM(VectorScaleFile)// &
                                 " -Jx1"//                                                        &
                                 " -R0/1/0/1 -GBlack -N -O"//                                     &
                                 " -Sv"//TRIM(ADJUSTL(VectorTailWidthC))//                        &
@@ -7937,7 +8046,7 @@
                         ENDIF
 
                         Line = ""
-                        Line = Path//"pstext "//TRIM(TempPath)//TRIM(VectorTextFile)// &
+                        Line = TRIM(Path)//" "//"pstext "//TRIM(TempPath)//TRIM(VectorTextFile)// &
                                 " -Jx1"
                         IF(KeepOpen(12).EQ.1)THEN
                             Line = TRIM(Line)//" -K"
@@ -7945,7 +8054,7 @@
                         Line = TRIM(Line)//" -R0/1/0/1 -GBlack -N -O -Xa"//TRIM(ADJUSTL(SideBarXC))//"i"// &
                                 " -Ya"//TRIM(VectorScaleYC)//"i >> "//                            &
                                 TRIM(PlotName)//".ps"
-                        CALL SYSTEM(TRIM(Line))
+                        CALL SYSTEM_LOG(TRIM(Line))
 
                         IF(RemoveFiles.EQ.1)THEN
                             OPEN(UNIT=22,FILE=TRIM(TempPath)//TRIM(VectorTextFile),ACTION="WRITE")
@@ -7967,34 +8076,38 @@
 
                 IF(IfAddPlotLabel.EQ.1)THEN
 
-                    WRITE(UNIT=PlotLabelFile,FMT='(A,I4.4,A)') "plotlabel.",Record,".txt"
+                    ! OM 07/17/2024: replaced plot label using pstext with title in -B
+                    ! To finilize PostScript file use psxy -T command
+                    Line = TRIM(Path)//" "//"psxy -T "//TRIM(ProjectionC)//" -Rg -X0 -Y0"
 
-                    OPEN(UNIT=28,FILE=TRIM(TempPath)//TRIM(PlotLabelFile),ACTION="WRITE")
-                    WRITE(UNIT=28,FMT='(A,A)') "0.0 0.0 14 0 0 BC ",TRIM(PlotLabel)
-                    CLOSE(UNIT=28,STATUS="KEEP")
+                    !WRITE(UNIT=PlotLabelFile,FMT='(A,I4.4,A)') "plotlabel.",Record,".txt"
 
-                    Line = Path//"pstext "//TRIM(TempPath)//TRIM(PlotLabelFile)      &
-                                //" -JX1i -R0/8/0/1 -Xa"//TRIM(ADJUSTL(PlotLabelXAdjustC)) &
-                                //"i -Ya"//TRIM(ADJUSTL(PlotLabelYAdjustC))//"i"  
+                    !OPEN(UNIT=28,FILE=TRIM(TempPath)//TRIM(PlotLabelFile),ACTION="WRITE")
+                    !WRITE(UNIT=28,FMT='(A,A)') "0.0 0.0 14 0 0 BC ",TRIM(PlotLabel)
+                    !CLOSE(UNIT=28,STATUS="KEEP")
+
+                    !Line = TRIM(Path)//" "//"pstext "//TRIM(TempPath)//TRIM(PlotLabelFile)      &
+                    !            //" -JX1i -R0/8/0/1 -Xa"//TRIM(ADJUSTL(PlotLabelXAdjustC)) &
+                    !            //"i -Ya"//TRIM(ADJUSTL(PlotLabelYAdjustC))//"i"  
                     IF(KeepOpen(13).EQ.1)THEN
                         Line = TRIM(Line)//" -K"
                     ENDIF
                     Line = TRIM(Line)//" -N -O >>"//Trim(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
-                    IF(RemoveFiles.EQ.1)THEN
-                        OPEN(UNIT=28,FILE=TRIM(TempPath)//TRIM(PlotLabelFile),ACTION="WRITE")
-                        CLOSE(UNIT=28,STATUS="DELETE")
-                    ENDIF
+                    !IF(RemoveFiles.EQ.1)THEN
+                    !    OPEN(UNIT=28,FILE=TRIM(TempPath)//TRIM(PlotLabelFile),ACTION="WRITE")
+                    !    CLOSE(UNIT=28,STATUS="DELETE")
+                    !ENDIF
 
-                    IF(Verbose.GE.3)THEN
-                        IF(IfGoogle.EQ.0)THEN
-                            WRITE(*,9720) "Core ",MyRank," wrote the plot label for record ",Record,"."
-                        ELSE
-                            WRITE(*,9721) "Core ",MyRank," wrote the plot label for record ",Record, &
-                                          ", layer ",IL1,", cell ",IL2,"/",IL3,"."
-                        ENDIF
-                    ENDIF
+                    !IF(Verbose.GE.3)THEN
+                    !    IF(IfGoogle.EQ.0)THEN
+                    !        WRITE(*,9720) "Core ",MyRank," wrote the plot label for record ",Record,"."
+                    !    ELSE
+                    !        WRITE(*,9721) "Core ",MyRank," wrote the plot label for record ",Record, &
+                    !                      ", layer ",IL1,", cell ",IL2,"/",IL3,"."
+                    !    ENDIF
+                    !ENDIF
 
                 ENDIF
 
@@ -8005,13 +8118,13 @@
                     WRITE(UNIT=25,FMT='(A)') "0 0 0 1.0"
                     CLOSE(UNIT=25,STATUS="KEEP")
 
-                    Line = Path//"psxy "//TRIM(TempPath)//TRIM(TimeMaxFile) &
+                    Line = TRIM(Path)//" "//"psxy "//TRIM(TempPath)//TRIM(TimeMaxFile) &
                                 //" -JX1i -R0/2/0/2 -N -O -Sv0.2i/0.0i/0.01"      &
                                 //" -Xa"//TRIM(ADJUSTL(SideBarXC))//"i"           &
                                 //" -Ya"//TRIM(ADJUSTL(TimeScaleYC))//"i"
                     Line = TRIM(Line)//" -K"
                     Line = TRIM(Line)//" -N -O >> "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(RemoveFiles.EQ.1)THEN
                         OPEN(UNIT=25,FILE=TRIM(TempPath)//TRIM(TimeMaxFile),ACTION="WRITE")
@@ -8031,13 +8144,13 @@
                     ENDIF
                     CLOSE(UNIT=26,STATUS="KEEP")
 
-                    Line = Path//"psxy "//TRIM(TempPath)//TRIM(TimeCurrentFile) &
+                    Line = TRIM(Path)//" "//"psxy "//TRIM(TempPath)//TRIM(TimeCurrentFile) &
                                 //" -JX1i -R0/2/0/2 -GBlack -N -O -Sv0.2i/0.0i/0.0i"  &
                                 //" -Xa"//TRIM(ADJUSTL(SideBarXC))//"i"               &
                                 //" -Ya"//TRIM(ADJUSTL(TimeScaleYC))//"i"
                     Line = TRIM(Line)//" -K"
                     Line = TRIM(Line)//" -N -O >> "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(RemoveFiles.EQ.1)THEN
                         OPEN(UNIT=26,FILE=TRIM(TempPath)//TRIM(TimeCurrentFile),ACTION="WRITE")
@@ -8078,7 +8191,7 @@
                     ENDIF
                     CLOSE(UNIT=27,STATUS="KEEP")
 
-                    Line = Path//"pstext "//TRIM(TempPath)                &
+                    Line = TRIM(Path)//" "//"pstext "//TRIM(TempPath)                &
                                 //TRIM(TimeCurrentTextFile)//" -JX1i -R0/2/0/2" &
                                 //" -Xa"//TRIM(ADJUSTL(SideBarXC))//"i"         &
                                 //" -Ya"//TRIM(ADJUSTL(TimeScaleTextYC))//"i"
@@ -8087,7 +8200,7 @@
                         Line = TRIM(Line)//" -K"
                     ENDIF
                     Line = TRIM(Line)//" -N -O >> "//TRIM(PlotName)//".ps"
-                    CALL SYSTEM(TRIM(Line))
+                    CALL SYSTEM_LOG(TRIM(Line))
 
                     IF(RemoveFiles.EQ.1)THEN
                         OPEN(UNIT=27,FILE=TRIM(TempPath)//TRIM(TimeCurrentTextFile),ACTION="WRITE")
@@ -8141,7 +8254,7 @@
                     IF(INDEX(TempLogoFile,"NULL").GT.0)THEN
                         CONTINUE
                     ELSE
-                        CALL SYSTEM(Path//"psimage "//TRIM(TempLogoFile)//   &
+                        CALL SYSTEM_LOG(TRIM(Path)//" "//"psimage "//TRIM(TempLogoFile)//   &
                                 " -W"//TRIM(LogoWidth)//"i"//                  &
                                 " -C"//TRIM(Line)//                            &
                                 " -Fthin,black -O >> "//TRIM(PlotName)//".ps")
@@ -8159,26 +8272,23 @@
 
                 IF(IfGoogle.EQ.1)THEN
 
-                    CALL SYSTEM("grep -v showpage "//TRIM(PlotName)//".ps | sed -e "//    &
-                                "'s/scale 0 A/scale 0 A showpage/g' > "//TRIM(TempPath)// &
-                                TRIM(PlotName)//".ps")
+                    ! OM 07/17/2024: removed as it caused error in psconvert
+                    !CALL SYSTEM_LOG("grep -a -v showpage "//TRIM(PlotName)//".ps | sed -e "//    &
+                    !            "'s/scale 0 A/scale 0 A showpage/g' > "//TRIM(TempPath)// &
+                    !            TRIM(PlotName)//".ps")
 
-                    CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".ps "// &
-                                TRIM(PlotName)//".ps")
+                    !CALL SYSTEM_LOG("mv "//TRIM(TempPath)//TRIM(PlotName)//".ps "// &
+                    !            TRIM(PlotName)//".ps")
 
-                    CALL SYSTEM(Path//"ps2raster "//TRIM(PlotName)//".ps -A"//      &
-                                " -E"//TRIM(ResolutionC)//" -F"//TRIM(TempPath)//         &
-                                TRIM(PlotName)//".png"//" -G"//GSPath//" -P -TG")
-
-                    CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".png .")
+                    CALL SYSTEM_LOG(TRIM(Path)//" "//"psconvert "//TRIM(PlotName)//".ps -A"//      &
+                                " -E"//TRIM(ResolutionC)//" -F"//TRIM(PlotName)//         &
+                                " -G"//GSPath//" -P -TG")
 
                 ELSEIF(IfGIS.GT.0)THEN
 
-                    CALL SYSTEM(Path//"ps2raster "//TRIM(PlotName)//".ps -A"//      &
-                                " -E"//TRIM(ResolutionC)//" -F"//TRIM(TempPath)//         &
-                                TRIM(PlotName)//"_grf"//" -G"//GSPath//" -P -Tj -W")             
-
-                    CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//"_grf* .")
+                    CALL SYSTEM_LOG(TRIM(Path)//" "//"psconvert "//TRIM(PlotName)//".ps -A"//      &
+                                " -E"//TRIM(ResolutionC)//" -F"//TRIM(PlotName)//"_grf"// &
+                                " -G"//GSPath//" -P -TG -W")             
 
                 ELSE
 
@@ -8186,101 +8296,96 @@
                     !    if the only thing in the PostScript file is the mesh (with no plot label,
                     !    no logo, etc.).  Try this fix.
                     IF(KeepOpen(2).EQ.1)THEN
-                        CALL SYSTEM("grep -v showpage "//TRIM(PlotName)//".ps | sed -e "//    &
-                                    "'s/scale 0 A/scale 0 A showpage/g' > "//TRIM(TempPath)// &
-                                    TRIM(PlotName)//".ps")
-                        CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".ps "// &
-                                    TRIM(PlotName)//".ps")
+                        ! OM 07/17/2024: removed as it caused error in psconvert
+                        !CALL SYSTEM_LOG("grep -v showpage "//TRIM(PlotName)//".ps | sed -e "//    &
+                        !            "'s/scale 0 A/scale 0 A showpage/g' > "//TRIM(TempPath)// &
+                        !            TRIM(PlotName)//".ps")
+                        !CALL SYSTEM_LOG("mv "//TRIM(TempPath)//TRIM(PlotName)//".ps "// &
+                        !            TRIM(PlotName)//".ps")
                     ENDIF
 
                     IF(DoPNG.EQ.1)THEN
-                        Line = Path//"ps2raster"
+                        Line = TRIM(Path)//" "//"psconvert"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
                         IF(ImageTrimFlag.EQ.1)THEN
                             Line = TRIM(Line)//" "//"-A"
                         ENDIF
                         Line = TRIM(Line)//" "//"-E"//TRIM(ResolutionC)
-                        Line = TRIM(Line)//" "//"-F"//TRIM(TempPath)//TRIM(PlotName)//".png"
+                        Line = TRIM(Line)//" "//"-F"//TRIM(PlotName)
                         Line = TRIM(Line)//" "//"-G"//GSPath
                         Line = TRIM(Line)//" "//"-P"
                         Line = TRIM(Line)//" "//"-TG"
-                        CALL SYSTEM(TRIM(Line))
-                        CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".png .")
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                     IF(DoJPG.EQ.1)THEN
-                        Line = Path//"ps2raster"
+                        Line = TRIM(Path)//" "//"psconvert"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
                         IF(ImageTrimFlag.EQ.1)THEN
                             Line = TRIM(Line)//" "//"-A"
                         ENDIF
                         Line = TRIM(Line)//" "//"-E"//TRIM(ResolutionC)
-                        Line = TRIM(Line)//" "//"-F"//TRIM(TempPath)//TRIM(PlotName)//".jpg"
+                        Line = TRIM(Line)//" "//"-F"//TRIM(PlotName)
                         Line = TRIM(Line)//" "//"-G"//GSPath
                         Line = TRIM(Line)//" "//"-P"
                         Line = TRIM(Line)//" "//"-Tj"
-                        CALL SYSTEM(TRIM(Line))
-                        CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".jpg .")
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                     IF(DoPDF.EQ.1)THEN
-                        Line = Path//"ps2raster"
+                        Line = TRIM(Path)//" "//"psconvert"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
                         IF(ImageTrimFlag.EQ.1)THEN
                             Line = TRIM(Line)//" "//"-A"
                         ENDIF
                         Line = TRIM(Line)//" "//"-E"//TRIM(ResolutionC)
-                        Line = TRIM(Line)//" "//"-F"//TRIM(TempPath)//TRIM(PlotName)//".pdf"
+                        Line = TRIM(Line)//" "//"-F"//TRIM(PlotName)
                         Line = TRIM(Line)//" "//"-G"//GSPath
                         Line = TRIM(Line)//" "//"-P"
                         Line = TRIM(Line)//" "//"-Tf"
-                        CALL SYSTEM(TRIM(Line))
-                        CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".pdf .")
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                     IF(DoBMP.EQ.1)THEN
-                        Line = Path//"ps2raster"
+                        Line = TRIM(Path)//" "//"psconvert"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
                         IF(ImageTrimFlag.EQ.1)THEN
                             Line = TRIM(Line)//" "//"-A"
                         ENDIF
                         Line = TRIM(Line)//" "//"-E"//TRIM(ResolutionC)
-                        Line = TRIM(Line)//" "//"-F"//TRIM(TempPath)//TRIM(PlotName)//".bmp"
+                        Line = TRIM(Line)//" "//"-F"//TRIM(PlotName)
                         Line = TRIM(Line)//" "//"-G"//GSPath
                         Line = TRIM(Line)//" "//"-P"
                         Line = TRIM(Line)//" "//"-Tb"
-                        CALL SYSTEM(TRIM(Line))
-                        CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".bmp .")
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                     IF(DoTIFF.EQ.1)THEN
-                        Line = Path//"ps2raster"
+                        Line = TRIM(Path)//" "//"psconvert"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
                         IF(ImageTrimFlag.EQ.1)THEN
                             Line = TRIM(Line)//" "//"-A"
                         ENDIF
                         Line = TRIM(Line)//" "//"-E"//TRIM(ResolutionC)
-                        Line = TRIM(Line)//" "//"-F"//TRIM(TempPath)//TRIM(PlotName)//".tif"
+                        Line = TRIM(Line)//" "//"-F"//TRIM(PlotName)
                         Line = TRIM(Line)//" "//"-G"//GSPath
                         Line = TRIM(Line)//" "//"-P"
                         Line = TRIM(Line)//" "//"-Tt"
-                        CALL SYSTEM(TRIM(Line))
-                        CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".tif .")
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                     IF(DoEPS.EQ.1)THEN
-                        Line = Path//"ps2raster"
+                        Line = TRIM(Path)//" "//"psconvert"
                         Line = TRIM(Line)//" "//TRIM(PlotName)//".ps"
                         IF(ImageTrimFlag.EQ.1)THEN
                             Line = TRIM(Line)//" "//"-A"
                         ENDIF
                         Line = TRIM(Line)//" "//"-E"//TRIM(ResolutionC)
-                        Line = TRIM(Line)//" "//"-F"//TRIM(TempPath)//TRIM(PlotName)//".eps"
+                        Line = TRIM(Line)//" "//"-F"//TRIM(PlotName)
                         Line = TRIM(Line)//" "//"-G"//GSPath
                         Line = TRIM(Line)//" "//"-P"
                         Line = TRIM(Line)//" "//"-Te"
-                        CALL SYSTEM(TRIM(Line))
-!                       CALL SYSTEM("mv "//TRIM(TempPath)//TRIM(PlotName)//".eps .")
+                        CALL SYSTEM_LOG(TRIM(Line))
                     ENDIF
 
                 ENDIF
@@ -10168,14 +10273,14 @@
                     WRITE(UNIT=YMaxBuf,FMT=1236) LatN+LatLonBuffer
                     WRITE(UNIT=YMinBuf,FMT=1236) LatS-LatLonBuffer
 
-                    CALL SYSTEM(Path//"xyz2grd "//TRIM(TempPath)//TRIM(VectorUFile)//".xyz"//     &
+                    CALL SYSTEM_LOG(TRIM(Path)//" "//"xyz2grd "//TRIM(TempPath)//TRIM(VectorUFile)//".xyz"//     &
                             " -G"//TRIM(TempPath)//TRIM(VectorUFile)//".grd -I"//TRIM(VectorSpacingC)// &
                             TRIM(VectorUnits)//                                                         &
                             " -R"//TRIM(ADJUSTL(XMinBuf))//"/"//TRIM(ADJUSTL(XMaxBuf))//"/"             &
                             //TRIM(ADJUSTL(YMinBuf))//"/"//TRIM(ADJUSTL(YMaxBuf))//                     &
                             " -N0.0")
                             
-                    CALL SYSTEM(Path//"xyz2grd "//TRIM(TempPath)//TRIM(VectorVFile)//".xyz"//     &
+                    CALL SYSTEM_LOG(TRIM(Path)//" "//"xyz2grd "//TRIM(TempPath)//TRIM(VectorVFile)//".xyz"//     &
                             " -G"//TRIM(TempPath)//TRIM(VectorVFile)//".grd -I"//TRIM(VectorSpacingC)// &
                             TRIM(VectorUnits)//                                                         &
                             " -R"//TRIM(ADJUSTL(XMinBuf))//"/"//TRIM(ADJUSTL(XMaxBuf))//"/"             &
@@ -10251,9 +10356,9 @@
                             ENDDO
                         ENDIF
 
-                        CALL SYSTEM("rm -f "//TRIM(TempPath)//"/XYZFileNames*")
-                        CALL SYSTEM("rm -f "//TRIM(TempPath)//"/GoogleExtents*")
-                        CALL SYSTEM("rm -f "//TRIM(TempPath)//"/mapproject*")
+                        CALL SYSTEM_LOG("rm -f "//TRIM(TempPath)//"/XYZFileNames*")
+                        CALL SYSTEM_LOG("rm -f "//TRIM(TempPath)//"/GoogleExtents*")
+                        CALL SYSTEM_LOG("rm -f "//TRIM(TempPath)//"/mapproject*")
 
 #ifdef CMPI
                         IF(ALLOCATED(RecordsList))  DEALLOCATE(RecordsList)
@@ -10573,6 +10678,7 @@
                 INTEGER,ALLOCATABLE :: RecordsIndex(:,:)
                 INTEGER,ALLOCATABLE :: SubRecordsList(:)
                 INTEGER             :: WorkingRecord
+                INTEGER             :: status
 
                 LOGICAL             :: InputFileError
                 LOGICAL             :: InputFileFound
@@ -10585,6 +10691,9 @@
                 REAL                :: Target = 0.5d0
 
                 DEG2RAD = 4D0*ATAN(1D0)/180D0 !...PI/180
+                LogFile = "debug.sh"
+                CmdID = 0
+
 #ifdef CMPI
                 CALL MPI_INIT(IERR)
                 CALL MPI_COMM_RANK(MPI_COMM_WORLD, MyRank, IERR)
@@ -10601,7 +10710,7 @@
 
                     WRITE(*,'(A)') " "
                     WRITE(*,'(A)') "--------------------------------------"
-                    WRITE(*,'(A)') "FigureGen 60                2024/06/05"
+                    WRITE(*,'(A)') "FigureGen 60                2024/07/17"
                     WRITE(*,'(A)') " "
                     WRITE(*,'(A)') "This program reads raw ADCIRC files"
                     WRITE(*,'(A)') "and uses GMT to generate a figure with"
@@ -10641,6 +10750,7 @@
                 CALL MPI_BCAST(InputFile, 100, MPI_CHARACTER, 0, MPI_COMM_WORLD, IERR)
 #endif
 
+
                 INQUIRE(FILE=TRIM(InputFile),EXIST=FileExists)
                 IF(.NOT.FileExists)THEN
                     IF(MyRank.EQ.0)THEN
@@ -10655,23 +10765,40 @@
                 InputFileError = .FALSE.
 
                 IF(MyRank.EQ.0)THEN
-                   CALL ReadInputFile(InputFileError)
+                    CALL ReadInputFile(InputFileError)
+
 #ifdef CMPI
-                   DO I=1,NumProcs-1
-                       CALL MPI_SEND(0,1,MPI_INTEGER,I,1,MPI_COMM_WORLD,IERR)
-                       JunkR = 0D0
-                       DO J=1,10000
-                           JunkR=JunkR+(0.5**J)**2
-                       ENDDO
-                       JunkR=0
-                   ENDDO
+                    DO I=1,NumProcs-1
+                        CALL MPI_SEND(0,1,MPI_INTEGER,I,1,MPI_COMM_WORLD,IERR)
+                        JunkR = 0D0
+                        DO J=1,10000
+                            JunkR=JunkR+(0.5**J)**2
+                        ENDDO
+                        JunkR=0
+                    ENDDO
 #endif                   
-                   IF(InputFileError)THEN
+                    IF(InputFileError)THEN
 #ifdef CMPI
                         CALL MPI_FINALIZE(IERR)
 #endif
                         STOP
-                   ENDIF
+                    ENDIF
+
+                    ! Check if the log file exists and delete it if it does
+                    INQUIRE(FILE=LogFile, EXIST=FileExists)
+                    IF (FileExists) THEN
+                        CALL EXECUTE_COMMAND_LINE("rm "//TRIM(LogFile), EXITSTAT=status)
+                        IF (status.NE.0) THEN
+                            WRITE(*,'(A)') "ERROR: Unable to delete existing log file."
+#ifdef CMPI
+                            CALL MPI_ABORT(MPI_COMM_WORLD,IERR,IERR)
+#endif
+                            STOP
+                        ENDIF
+                    ENDIF
+
+                    ! remove previous error logs
+                    CALL EXECUTE_COMMAND_LINE("rm -f "//TRIM(TempPath)//"error*.log")
                    
                    IF(OutputFileList)THEN
                        CALL ReadOutputFileList(ContourFileListFile,NumContourFiles,ContourFileList,ContourFileTag,ReadError)
@@ -11028,15 +11155,15 @@
                     ! D_FORMAT             -> FORMAT_FLOAT_OUT
                     ! HISTORY              -> GMT_HISTORY
 
-                    !CALL SYSTEM(Path//"gmtset PAPER_MEDIA letter")
-                    !CALL SYSTEM(Path//"gmtset PLOT_DEGREE_FORMAT -D") 
-                    !CALL SYSTEM(Path//"gmtset OUTPUT_DEGREE_FORMAT -D")
-                    !CALL SYSTEM(Path//"gmtset BASEMAP_TYPE fancy")
-                    !CALL SYSTEM(Path//"gmtset D_FORMAT %lg")
-                    !CALL SYSTEM(Path//"gmtset HISTORY FALSE")
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset PAPER_MEDIA letter")
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset PLOT_DEGREE_FORMAT -D") 
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset OUTPUT_DEGREE_FORMAT -D")
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset BASEMAP_TYPE fancy")
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset D_FORMAT %lg")
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset HISTORY FALSE")
 #ifdef PLAIN
                     ! removed 'gmtset' commands, set gmt.conf outside figuregen
-                    !CALL SYSTEM(Path//"gmtset BASEMAP_TYPE plain")
+                    !CALL SYSTEM_LOG(TRIM(Path)//" "//"gmtset BASEMAP_TYPE plain")
 #endif
 
 #ifdef CMPI
@@ -11233,8 +11360,8 @@
                 IF((MyRank.EQ.0).AND.(IfGIS.EQ.2))THEN
 
                     IF(INDEX(ContourFileType,"GRID-DECOMP").LE.0)THEN
-                        CALL SYSTEM(Path//"ps2raster Scale.ps -A -E200 -FScale.jpg"// &
-                                    " -G"//GSPath//" -P -Tj")
+                        CALL SYSTEM_LOG(TRIM(Path)//" "//"psconvert Scale.ps -A -E200 -FScale"// &
+                                    " -G"//GSPath//" -P -TG")
                     ENDIF
 
                     WRITE(ZipFile,'(A)') TRIM(AlphaLabel)
@@ -11246,23 +11373,23 @@
 
                     INQUIRE(FILE=TRIM(ZipFile)//".zip",EXIST=FileExists)
                     IF(FileExists)THEN
-                        CALL SYSTEM("rm "//TRIM(ZipFile)//".zip")
+                        CALL SYSTEM_LOG("rm "//TRIM(ZipFile)//".zip")
                     ENDIF
 
                     DO I=1,NumRecords
                         Record = RecordsList(I)
                         WRITE(UNIT=RecordLabel,FMT='(A,I4.4)') TRIM(AlphaLabel),Record
-                        CALL SYSTEM("mkdir "//TRIM(RecordLabel))
-                        CALL SYSTEM("mv "//TRIM(RecordLabel)//"*.jpg "//TRIM(RecordLabel))
-                        CALL SYSTEM("mv "//TRIM(RecordLabel)//"*.jgw "//TRIM(RecordLabel))
-                        CALL SYSTEM("zip -qr "//TRIM(ZipFile)//" "//TRIM(RecordLabel))
-                        CALL SYSTEM("rm -fR "//TRIM(RecordLabel))
-                        CALL SYSTEM("rm -fR "//TRIM(RecordLabel)//"*.ps")
+                        CALL SYSTEM_LOG("mkdir "//TRIM(RecordLabel))
+                        CALL SYSTEM_LOG("mv "//TRIM(RecordLabel)//"*.png "//TRIM(RecordLabel))
+                        CALL SYSTEM_LOG("mv "//TRIM(RecordLabel)//"*.pgw "//TRIM(RecordLabel))
+                        CALL SYSTEM_LOG("zip -qr "//TRIM(ZipFile)//" "//TRIM(RecordLabel))
+                        CALL SYSTEM_LOG("rm -fR "//TRIM(RecordLabel))
+                        CALL SYSTEM_LOG("rm -fR "//TRIM(RecordLabel)//"*.ps")
                     ENDDO
 
                     IF(INDEX(ContourFileType,"GRID-DECOMP").LE.0)THEN
-                        CALL SYSTEM("zip -qr "//TRIM(ZipFile)//" Scale.jpg")
-                        CALL SYSTEM("rm Scale*")
+                        CALL SYSTEM_LOG("zip -qr "//TRIM(ZipFile)//" Scale.png")
+                        CALL SYSTEM_LOG("rm Scale*")
                     ENDIF
 
                     CALL RemoveIfExists(".bb")
